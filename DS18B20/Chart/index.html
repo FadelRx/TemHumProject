@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Temperature Monitoring</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.3.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Itim', cursive;
+      background-color: #e3f2fd;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+    h2 {
+      color: #007bff;
+    }
+    .latest-temp {
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+    }
+    .bg-green {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .bg-orange {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    #tempChart {
+      max-width: 100%;
+      height: 400px;
+    }
+    footer {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2 class="text-center mb-4 text-success">รพสต.บานา ตู้เย็นที่: 1</h2>
+
+    <!-- แสดงอุณหภูมิล่าสุด -->
+    <div id="latestTemp" class="latest-temp">Loading...</div>
+
+   <div class="mb-4">
+    <label for="filterDate">เลือกวันที่:</label>
+    <input type="date" id="filterDate" class="form-control mb-2">
+    <label for="intervalSelect">เลือกช่วงเวลา:</label>
+    <select id="intervalSelect" class="form-select mb-2">
+      <option value="10min">ทุก 10 นาที</option>
+      <option value="30min">ทุก 30 นาที</option>
+      <option value="1hr">ทุก 1 ชั่วโมง</option>
+      <option value="1day">ทุก 1 วัน</option>
+    </select>
+    <button onclick="loadTemperatureDataByDateAndInterval()" class="btn btn-primary mb-4">กรองข้อมูล</button>
+     <!-- ปุ่มดาวน์โหลด CSV -->
+    <button onclick="downloadCSV()" class="btn btn-success mb-4">ดาวน์โหลด CSV</button>
+  </div>
+
+
+    <!-- กราฟอุณหภูมิ -->
+    <canvas id="tempChart"></canvas>
+  </div>
+
+   <footer>
+    © 2025 Temperature Monitoring | Designed by RteX
+  </footer>
+
+  <script>
+    let tempChart;
+
+    // แสดง SweetAlert ขณะโหลดข้อมูล
+    function showLoading() {
+      Swal.fire({
+        title: 'กำลังโหลดข้อมูล...',
+        text: 'กรุณารอสักครู่',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+    }
+
+    function hideLoading() {
+      Swal.close();
+    }
+
+    function loadTemperatureDataByDateAndInterval() {
+      const filterDate = document.getElementById('filterDate').value;
+      const interval = document.getElementById('intervalSelect').value;
+
+      if (!filterDate) {
+        Swal.fire('กรุณาเลือกวันที่');
+        return;
+      }
+
+      showLoading();
+      google.script.run
+        .withSuccessHandler(function (data) {
+          hideLoading();
+          const ctx = document.getElementById('tempChart').getContext('2d');
+          if (tempChart) tempChart.destroy();
+
+          tempChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.timestamps,
+              datasets: [{
+                label: 'Temperature (°C)',
+                data: data.temperatures,
+                borderColor: 'rgba(0, 123, 255, 1)',
+                backgroundColor: 'rgba(0, 123, 255, 0.2)',
+                pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                pointRadius: 5,
+                borderWidth: 2,
+              }],
+            },
+            options: {
+              plugins: {
+                annotation: {
+                  annotations: [
+                    {
+                      type: 'line',
+                      yMin: 2,
+                      yMax: 2,
+                      borderColor: 'rgba(255, 99, 132, 1)',
+                      borderWidth: 2,
+                      label: {
+                        content: 'Min Threshold (2°C)',
+                        enabled: true,
+                        position: 'start',
+                      },
+                    },
+                    {
+                      type: 'line',
+                      yMin: 8,
+                      yMax: 8,
+                      borderColor: 'rgba(75, 192, 192, 1)',
+                      borderWidth: 2,
+                      label: {
+                        content: 'Max Threshold (8°C)',
+                        enabled: true,
+                        position: 'start',
+                      },
+                    },
+                  ],
+                },
+              },
+              scales: {
+                x: { title: { display: true, text: 'Time' } },
+                y: { title: { display: true, text: 'Temperature (°C)' }, beginAtZero: false },
+              },
+            },
+          });
+        })
+        .getTemperatureDataByDateAndInterval(filterDate, interval);
+    }
+
+
+    // โหลดข้อมูลจาก Google Apps Script และแสดงกราฟ
+    function loadTemperatureData() {
+      showLoading();
+      const interval = document.getElementById('intervalSelect').value;
+      google.script.run.withSuccessHandler(function(data) {
+        hideLoading();
+        const latestData = {
+          timestamps: data.timestamps.slice(-100),
+          temperatures: data.temperatures.slice(-100)
+        };
+        const ctx = document.getElementById('tempChart').getContext('2d');
+        if (tempChart) tempChart.destroy();
+
+        tempChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: latestData.timestamps,
+            datasets: [{
+              label: 'Temperature (°C)',
+              data: latestData.temperatures,
+              borderColor: 'rgba(0, 123, 255, 1)',
+              backgroundColor: 'rgba(0, 123, 255, 0.2)',
+              pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+              pointRadius: 5,
+              borderWidth: 2
+            }]
+          },
+          options: {
+            plugins: {
+              annotation: {
+                annotations: [
+                  {
+                    type: 'line',
+                    yMin: 2,
+                    yMax: 2,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    label: {
+                      content: 'Min Threshold (2°C)',
+                      enabled: true,
+                      position: 'start'
+                    }
+                  },
+                  {
+                    type: 'line',
+                    yMin: 8,
+                    yMax: 8,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    label: {
+                      content: 'Max Threshold (8°C)',
+                      enabled: true,
+                      position: 'start'
+                    }
+                  }
+                ]
+              }
+            },
+            scales: {
+              x: { title: { display: true, text: 'Time' } },
+              y: { title: { display: true, text: 'Temperature (°C)' }, beginAtZero: false }
+            }
+          }
+        });
+      }).getTemperatureData(interval);
+    }
+
+    // โหลดข้อมูลจาก Google Apps Script โดยกรองตามวันที่
+    function loadTemperatureDataByDate() {
+      const filterDate = document.getElementById('filterDate').value;
+
+      if (!filterDate) {
+        Swal.fire('กรุณาเลือกวันที่');
+        return;
+      }
+
+      showLoading();
+      google.script.run.withSuccessHandler(function(data) {
+        hideLoading();
+        const ctx = document.getElementById('tempChart').getContext('2d');
+        if (tempChart) tempChart.destroy();
+
+        tempChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.timestamps,
+            datasets: [{
+              label: 'Temperature (°C)',
+              data: data.temperatures,
+              borderColor: 'rgba(0, 123, 255, 1)',
+              backgroundColor: 'rgba(0, 123, 255, 0.2)',
+              pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+              pointRadius: 5,
+              borderWidth: 2
+            }]
+          },
+          options: {
+            plugins: {
+              annotation: {
+                annotations: [
+                  {
+                    type: 'line',
+                    yMin: 2,
+                    yMax: 2,
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2,
+                    label: {
+                      content: 'Min Threshold (2°C)',
+                      enabled: true,
+                      position: 'start'
+                    }
+                  },
+                  {
+                    type: 'line',
+                    yMin: 8,
+                    yMax: 8,
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 2,
+                    label: {
+                      content: 'Max Threshold (8°C)',
+                      enabled: true,
+                      position: 'start'
+                    }
+                  }
+                ]
+              }
+            },
+            scales: {
+              x: { title: { display: true, text: 'Time' } },
+              y: { title: { display: true, text: 'Temperature (°C)' }, beginAtZero: false }
+            }
+          }
+        });
+      }).getTemperatureDataByDate(filterDate);
+    }
+
+
+    
+
+    // ฟังก์ชันดาวน์โหลด CSV
+    function downloadCSV() {
+      showLoading();
+      const interval = document.getElementById('intervalSelect').value;
+      google.script.run.withSuccessHandler(function(csvContent) {
+        hideLoading();
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'temperature_data.csv';
+        link.click();
+      }).getTemperatureDataCSV(interval);
+    }
+
+    // แสดงอุณหภูมิล่าสุดและเปลี่ยนสีพื้นหลังตามเงื่อนไข
+    google.script.run.withSuccessHandler(function(latestTemp) {
+      const latestTempDiv = document.getElementById('latestTemp');
+      latestTempDiv.textContent = `อุณหภูมิล่าสุด: ${latestTemp} °C`;
+
+      if (latestTemp < 2 || latestTemp > 8) {
+        latestTempDiv.classList.remove('bg-green');
+        latestTempDiv.classList.add('bg-orange');
+      } else {
+        latestTempDiv.classList.remove('bg-orange');
+        latestTempDiv.classList.add('bg-green');
+      }
+    }).getLatestTemperature();
+
+    // โหลดข้อมูลเมื่อเปิด Web App
+    window.onload = loadTemperatureData;
+  </script>
+</body>
+</html>
