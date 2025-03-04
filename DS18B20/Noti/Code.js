@@ -1,5 +1,5 @@
 function checkLatestTemperatureAndNotify() {
-  const sheet = SpreadsheetApp.openById("1A-r9pZpYXEDMJSq6U9hrw2WMtN8cf-LBLW3_tHi5A7o").getSheetByName('Bana1');
+  const sheet = SpreadsheetApp.openById("SHEET ID").getSheetByName('Bana1');
   const data = sheet.getDataRange().getValues(); // ดึงข้อมูลทั้งหมด
   const threshold = 8; // เกณฑ์อุณหภูมิ
 
@@ -22,7 +22,7 @@ function checkLatestTemperatureAndNotify() {
 
 // ส่งข้อความแจ้งเตือนผ่าน Discord
 function sendDiscordNotification(datetime, temp) {
-  const webhookUrl = 'https://discord.com/api/webhooks/1331924595875381291/52WFtuJr6jlcNwZE25PMMxIz4zomKpw5EfnLYo8chsn3np5OdWzuuU66A2Ix-myOXkuv'; // ใส่ Webhook URL ของ Discord
+  const webhookUrl = 'https://discord.com/api/webhooks/DISCORD WEBHOOK'; // ใส่ Webhook URL ของ Discord
 
   const message = `⚠️ **แจ้งเตือน: อุณหภูมิตู้เย็นเกินเกณฑ์!**\n` +
                   `🕒 **วันที่และเวลา:** ${datetime}\n` +
